@@ -5,4 +5,7 @@ __pycache__/
 *.pyc
 .vscode/
 .idea/
-calibration/
+calibration _img_sets/
+logos/
+.gitignore/
+internetconfig.xlsx/

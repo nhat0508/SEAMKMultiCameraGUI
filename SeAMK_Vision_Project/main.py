@@ -2,15 +2,13 @@ import os
 import sys
 from widgets.utils.config import HIKROBOT_BIN, HIKROBOT_CTI
 
-# Force UTF-8 encoding
-os.environ["PYTHONUTF8"] = "1"
-os.environ["PYTHONIOENCODING"] = "utf-8"
-
-# Load DLLs to prevent C++ library loading errors
+# Load DLLs
 if hasattr(os, 'add_dll_directory'):
     os.add_dll_directory(HIKROBOT_BIN)
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                                QHBoxLayout, QCheckBox, QPushButton, QLabel)
+from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt
 from harvesters.core import Harvester
 from camera_thread import CameraThread
@@ -20,16 +18,14 @@ class MainApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SEAMK Unified Camera System")
-        self.resize(1200, 800)
-        
-        # USE A SINGLE HARVESTER INSTANCE
+        self.resize(300, 300)
+        self.logo_path = os.path.join(os.path.dirname(__file__), "widgets", "logo.png")
         self.h = Harvester()
         try:
             self.h.add_file(HIKROBOT_CTI)
             self.h.update()
-            print(f"CTI loaded. Found: {len(self.h.device_info_list)} camera(s).")
         except Exception as e:
-            print(f"Harvester system initialization error: {e}")
+            print(f"Harvester error: {e}")
 
         self.threads = [] 
         self.previews = [] 
@@ -39,9 +35,17 @@ class MainApp(QMainWindow):
     def show_selection_ui(self):
         self.selection_widget = QWidget()
         layout = QVBoxLayout()
-        self.checkboxes = []
+        
+        # --- LOGO GÓC TRÊN PHẢI (MÀN SELECT) ---
+        if os.path.exists(self.logo_path):
+            logo_bar = QHBoxLayout()
+            logo_bar.addStretch()
+            lbl_logo = QLabel()
+            lbl_logo.setPixmap(QPixmap(self.logo_path).scaledToHeight(60, Qt.SmoothTransformation))
+            logo_bar.addWidget(lbl_logo)
+            layout.addLayout(logo_bar)
 
-        # Display all cameras found (e.g., Basler and Hikrobot)
+        self.checkboxes = []
         for info in self.h.device_info_list:
             cb = QCheckBox(f"[{info.vendor}] {info.model} ({info.id_})")
             layout.addWidget(cb)
@@ -51,7 +55,7 @@ class MainApp(QMainWindow):
         ok_btn.setFixedHeight(40)
         ok_btn.clicked.connect(self.start_streaming)
         layout.addWidget(ok_btn)
-        
+        layout.addStretch()
         self.selection_widget.setLayout(layout)
         self.setCentralWidget(self.selection_widget)
 
@@ -60,12 +64,18 @@ class MainApp(QMainWindow):
         if not selected_info: return
 
         self.main_widget = QWidget()
-        self.main_layout = QHBoxLayout()
+        master_layout = QVBoxLayout() 
+        if os.path.exists(self.logo_path):
+            logo_bar = QHBoxLayout()
+            logo_bar.addStretch()
+            lbl_logo = QLabel()
+            lbl_logo.setPixmap(QPixmap(self.logo_path).scaledToHeight(45, Qt.SmoothTransformation))
+            logo_bar.addWidget(lbl_logo)
+            master_layout.addLayout(logo_bar)
+        camera_layout = QHBoxLayout()
 
         for index, info in enumerate(selected_info):
-            print(f"Initializing: {info.model}")
             try:
-                # Use the single Harvester instance to create connection
                 ia = self.h.create({'id_': info.id_})
                 self.acquirers.append(ia)
                 
@@ -74,7 +84,6 @@ class MainApp(QMainWindow):
                 thread = CameraThread(ia, info)
                 preview.set_thread(thread) 
                 
-                # Connect image signal to the preview window
                 thread.change_pixmap_signal.connect(preview.update_image, Qt.QueuedConnection)
                 
                 if is_main:
@@ -84,18 +93,18 @@ class MainApp(QMainWindow):
                     preview.global_start_snap_signal.connect(self.start_global_snap)
                     preview.global_stop_snap_signal.connect(self.stop_global_snap)
                 
-                # Connect Focus Mode signal (Bandwidth management)
                 preview.focus_mode_signal.connect(self.handle_focus_mode)
                 
-                self.main_layout.addWidget(preview)
+                camera_layout.addWidget(preview)
                 self.previews.append(preview)
                 self.threads.append(thread)
                 thread.start()
 
             except Exception as e:
-                print(f"CAMERA INITIALIZATION ERROR {info.model}: {e}")
+                print(f"Error {info.model}: {e}")
 
-        self.main_widget.setLayout(self.main_layout)
+        master_layout.addLayout(camera_layout)
+        self.main_widget.setLayout(master_layout)
         self.setCentralWidget(self.main_widget)
 
     def handle_focus_mode(self, active_preview, is_focus):
@@ -103,12 +112,11 @@ class MainApp(QMainWindow):
             if p != active_preview: 
                 if is_focus:
                     t.pause_camera() 
-                    p.image_label.setStyleSheet("background-color: black; opacity: 0.5; border: 2px solid red;")
+                    p.image_label.setStyleSheet("background-color: black; border: 2px solid red;")
                 else:
                     t.resume_camera()
                     p.image_label.setStyleSheet("background-color: black; border: 1px solid #333;")
 
-    # --- Synchronized functions ---
     def toggle_sync_mode(self, is_synced):
         for i in range(1, len(self.previews)):
             self.previews[i].set_buttons_enabled(not is_synced)
@@ -126,21 +134,11 @@ class MainApp(QMainWindow):
         for p in self.previews: p.stop_local_snap()
 
     def closeEvent(self, event):
-        # Stop all threads
         for t in self.threads: t._run_flag = False
         for t in self.threads: t.wait(1500)
-        
-        # Cleanup acquirers
         for ia in self.acquirers:
-            try:
-                if ia.remote_device: 
-                    ia.remote_device.node_map.AcquisitionStop.execute()
-                ia.destroy()
+            try: ia.destroy()
             except: pass
-            
-        self.acquirers.clear()
-        self.threads.clear()
-        
         try: self.h.reset()
         except: pass
         event.accept()

@@ -1,7 +1,7 @@
 import numpy as np
 import cv2, os, time, json
 from PySide6.QtCore import QThread, Signal
-from calibration.calibration_functions import undistort_image, get_undistort_map, fast_undistort_image
+from calibration_functions import undistort_image, get_undistort_map, fast_undistort_image
 
 class CameraThread(QThread):
     change_pixmap_signal = Signal(np.ndarray) 
