@@ -47,19 +47,19 @@ Download MVS from the official Hikrobot website: [Hikrobot Service Download](htt
 **Step 2: Install Python 3.10**
 The system is most stable on **Python 3.10** or **3.10.11**. (Later versions may not be compatible).
 1. Press **Start** -> Type **CMD** -> Right-click and select **Run as Administrator**.
-2. Check your current Python version:
-   ```bash
-   python --version
-
+2. winget install -e --id Python.Python.3.10;
+```bash
+winget install -e --id Python.Python.3.10
 ```
-
-3. Navigate to the project directory and install the required dependencies:
+(Note: Type 'Y' and press Enter if asked to agree to the source agreements. If an installation window appears, make sure to check the box "Add Python 3.10 to PATH" before clicking Install).
+3. Close the current CMD window, open a new one, and check your installed version to verify:
+```bash
+python --version
+```
+4. Navigate to the project directory and install the required dependencies:
 ```bash
 pip install -r requirements.txt
-
 ```
-
-
 *This command automatically installs all necessary libraries such as PySide6, OpenCV, NumPy, etc.*
 
 **Step 3: Path Configuration**
@@ -107,7 +107,3 @@ Import the 03 `.mfa` configuration files from the **`user_set_2`** folder into t
 ---
 
 *Developed for the Vision system at SeAMK.*
-
-```
-
-```

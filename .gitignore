@@ -1,4 +1,3 @@
-
 captures/
 venv/
 __pycache__/
@@ -6,6 +5,4 @@ __pycache__/
 .vscode/
 .idea/
 calibration_img_sets/
-logos/
-.gitignore/
-internetconfig.xlsx/
+internetconfig.xlsx
